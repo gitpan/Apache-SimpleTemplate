@@ -2,7 +2,7 @@ package Apache::SimpleTemplate;
 #
 # a very simple mod_perl template parser.
 #
-# (c) 2001 peter forty
+# (c) 2001-2002 peter forty
 #
 # you may use this and/or distribute this under
 # the same terms as perl itself.
@@ -11,7 +11,7 @@ package Apache::SimpleTemplate;
 use Apache ();
 use strict;
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 our %____cache;
 
 
@@ -57,24 +57,21 @@ sub cgi_handler {
 
     my $s = shift;
 
-    $s->{file} = $s->{inref}->{file} || $s->{file};
+    $s->{file} = $_[0] || $s->{inref}->{file} || $s->{file};
     $s->{content_type} = $s->{inref}->{content_type} || $s->{content_type} || 'text/html';
-    $s->{block_begin} = $s->{block_begin} || '{{';
-    $s->{block_end} = $s->{block_end} || '}}';
-    $s->{cache} = 0;
 
     my $out = $s->render($ENV{DOCUMENT_ROOT}.$s->{file});
 
     # send any header stuff from headerref
     foreach my $h (keys %{$s->{headerref}}) { 
-	print $h . ': ' . $s->{headerref}->{$h} . "\n";
+		print $h . ': ' . $s->{headerref}->{$h} . "\n";
     }
     # set my status and content_type...
     print 'Content-type: '. $s->{content_type} . "\n\n";
 
     # send the document if we're OK
     if ($s->{status} == 200) { print $out; }
-
+	
     return $s->{status};
 
 }
@@ -97,7 +94,7 @@ sub new {
     my $r = shift;
     my $self = {};
 
-    if ($r) { 
+    if (ref($r) =~ m/Apache/) { 
 	$self->{file} = $r->dir_config('SimpleTemplateFile') || 
 	    ($ENV{SCRIPT_NAME} . $ENV{PATH_INFO});
 	$self->{block_begin} = $r->dir_config('SimpleTemplateBlockBegin') || '{{';
@@ -107,7 +104,7 @@ sub new {
     }
     
     $self->{r} = $r;
-    $self->{inref} = &parse_form($r);
+    $self->{inref} = (ref($r) eq 'HASH') ? $r : &parse_form($r);
     $self->{headerref} = {};
     $self->{status} = 200;
 
@@ -130,7 +127,7 @@ sub render {
 
     my $inref = $s->{inref};
     my $headerref = $s->{headerref};
-    my $content_type = $s->{content_type};
+    my $content_type = $s->{content_type} || 'text/html';
     my $status = $s->{status};
 
     my $____o_u_t_;
@@ -140,8 +137,8 @@ sub render {
 	$____cache{$_[0]} = $____o_u_t_ if ($s->{cache} && ($status == 200));
     }
 
-    my $____block_begin = $s->{block_begin};
-    my $____block_end = $s->{block_end};
+    my $____block_begin = $s->{block_begin} || '{{';
+    my $____block_end = $s->{block_end} || '}}';
     $____block_begin =~ s/([^\w])/\\$1/g;
     $____block_end =~ s/([^\w])/\\$1/g;
     #print STDERR "DELIM: $____block_begin $____block_end\n";
@@ -173,14 +170,30 @@ sub render {
 # include
 #
 # for use in templates, so they can include other templates/files.
-# takes a path relative to the document root.
+# takes a path relative to the document root. 
+#   $s->include('/path/relative/to/docroot.stml');
+#
+# or statically
+#   &Apache::SimpleTemplate::include('/path/relative/to/docroot.stml', $inref);
+#   &Apache::SimpleTemplate::include('/path/relative/to/docroot.stml');
 #
 
 sub include {
 
     my $s = shift;
 
-    return $s->render($ENV{DOCUMENT_ROOT}.$_[0]);
+	if (ref $s) {
+		return $s->render($ENV{DOCUMENT_ROOT}.$_[0]);
+	}
+
+	else {
+		my $template = $s;
+		my $inref = $_[0];
+		unless ($inref) { $inref = &parse_form(); }
+
+		$s = new Apache::SimpleTemplate($inref);
+		return $s->render($ENV{DOCUMENT_ROOT}.$template);
+	}
 
 }
 
@@ -426,7 +439,7 @@ The only requirement is mod_perl. To install Apache::SimpleTemplate, run:
 
 =head2 cgi script "simpletemplate.cgi"
 
-  #!/usr/local/bin/perl
+  #!/usr/bin/perl
   # 
   # example using SimpleTemplate as a CGI.
   # this *must* be called with a "file" arg or have $s->{file} defined.
@@ -463,14 +476,20 @@ The only requirement is mod_perl. To install Apache::SimpleTemplate, run:
                   of the last value returned by the block. 
   $____*        - these names are reserved for use inside the parsing function.
 
-=head2 method/functions
+=head2 methods/functions
 
   $s->include('/some/path')   -- include another document/template.
                                  the path is relative to the document root
+
   &encode($string)            -- url-encode the $string.
   &decode($string)            -- url-decode the $string.
   &preload($file)             -- preload the template in $file (a full path).
                                  for use in a startup.pl file.
+
+  &Apache::SimpleTemplate::include('/some/path');
+                              -- include call for use in other code ouside a template
+  &Apache::SimpleTemplate::include('/some/path', $inref);
+                              -- same but without reparsing the input fields.
 
 =head2 PerlSetVar options 
 
@@ -524,7 +543,7 @@ The only requirement is mod_perl. To install Apache::SimpleTemplate, run:
 
 =head1 VERSION
 
-  Version 0.01, 2001-July-12.
+  Version 0.02, 2002-September-02.
 
 =head1 AUTHOR
 
@@ -535,7 +554,7 @@ The only requirement is mod_perl. To install Apache::SimpleTemplate, run:
   The homepage for this project is: 
   http://peter.nyc.ny.us/simpletemplate/
 
-=head1 COPYRIGHT (c) 2001
+=head1 COPYRIGHT (c) 2001-2002
 
   This is free software with absolutely no warranty.
   You may use it, distribute it, and/or modify 
