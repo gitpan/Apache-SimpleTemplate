@@ -1,4 +1,4 @@
-Apache::SimpleTemplate version 0.03
+Apache::SimpleTemplate version 0.04
 ===================================
 
 Apache::SimpleTemplate is *another* Template-with-embedded-Perl package
@@ -42,12 +42,12 @@ Then, to test it with Apache/mod_perl:
 
 DEPENDENCIES
 
-The only depency is mod_perl.
+The only dependency is mod_perl.
 
 
 COPYRIGHT AND LICENSE
 
-Copyright (c) 2001-2002, Peter Forty
+Copyright (c) 2001-2003, Peter Forty
 
 This is free software with no warranty.
 You may use it, distribute it, and/or modify 
