@@ -1,0 +1,43 @@
+Apache::SimpleTemplate version 0.01
+===================================
+
+Apache::SimpleTemplate is *another* Template-with-embedded-Perl package
+for mod_perl. It allows you to embed blocks of Perl code into text
+documents, such as HTML files, and have this code executed upon HTTP
+request. It should take moments to set-up and learn; very little knowledge 
+of mod_perl is necessary.
+
+This module is meant to be a slim and basic alternative to more fully
+featured packages like Apache::Embperl, Apache::ASP, TemplateToolkit.
+You may wish to compare approaches and features, and consider trade-offs
+in funcionality, implementation time, speed, memory consumption, etc.
+
+Apache::SimpleTemplate has no added syntax/tags/etc, and only the bare 
+necessities of functionality. Thus, it should have a very small memory 
+footprint and little processing overhead. It has basic caching and
+pre-loading options for templates to help you tweak performance. It is 
+also designed for making subclasses, in which you can add the functionality 
+you want. 
+
+
+INSTALLATION
+
+To install Apache::SimpleTemplate, type the following:
+  perl Makefile.PL
+  make
+  make install
+
+
+DEPENDENCIES
+
+The only depency is mod_perl.
+
+
+COPYRIGHT AND LICENSE
+
+Copyright (c) 2001, Peter Forty
+
+This is free software with no warranty.
+You may use it, distribute it, and/or modify 
+it under the same terms as Perl itself.
+
