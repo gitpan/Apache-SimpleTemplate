@@ -11,7 +11,7 @@ package Apache::SimpleTemplate;
 use Apache ();
 use strict;
 
-our $VERSION = 0.03;
+our $VERSION = 0.05;
 our %_cache;
 our %_cache_time;
 
@@ -1008,7 +1008,7 @@ Then, to test it with Apache/mod_perl:
 
 =head1 VERSION
 
-  Version 0.04, 2003-March-23.
+  Version 0.05, 2003-March-30.
 
 
 
