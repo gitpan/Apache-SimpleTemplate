@@ -31,18 +31,21 @@ our $DEFAULT_DEBUG_LEVEL = 0;
 
 sub handler {
 
-    my $r = shift;
+	my $r = shift;
 
-    my $s = shift || new Apache::SimpleTemplate($r);
-    #unless ($r) { return &cgi_handler($s); }
+	my $s = shift || new Apache::SimpleTemplate($r);
+	#unless ($r) { return &cgi_handler($s); }
 	$s->{_header_sent} = 0;
 
 	print STDERR "-------- Apache::SimpleTemplate::handler REQUEST FOR $s->{file}\n" if ($s->{debug} > 1);
 
-    if ($s->{status} == 200) { $s->render($ENV{DOCUMENT_ROOT}.$s->{file}); }
+	if ($s->{status} == 200) { $s->render($ENV{DOCUMENT_ROOT}.$s->{file}); }
 	$s->flush(1);
 
-	return ($s->{debug} && $s->{_error}) ? undef : $s->{status};
+#	return ($s->{debug} && $s->{_error}) ? undef : $s->{status};
+#	return ($s->{_error}) ? $s->{status} : undef;
+	return ( $s->{status} && ($s->{status} != 200) ) ? $s->{status} : undef;
+
 
 }
 
@@ -65,11 +68,13 @@ sub handler {
 
 sub new {
 
-    my $class = shift;
-    my $r = shift;
-    my $self = {};
+	my $class = shift;
+	my $r = shift;
+	my $self = {};
 
-    if (ref($r) =~ m/Apache/) {
+	bless($self, $class);
+
+	if (ref($r) =~ m/Apache/) {
 		$self->{file} = $r->dir_config('SimpleTemplateFile');
 		$self->{block_begin} = $r->dir_config('SimpleTemplateBlockBegin');
 		$self->{block_end} = $r->dir_config('SimpleTemplateBlockEnd');
@@ -79,26 +84,24 @@ sub new {
 		$self->{cache} = $r->dir_config('SimpleTemplateCache');
 		$self->{reload} = $r->dir_config('SimpleTemplateReload');
 		$self->{debug} = $r->dir_config('SimpleTemplateDebug');
-    }
+	}
 	if (!defined $self->{cache}) { $self->{cache} = $DEFAULT_CACHE_FLAG; }
 	if (!defined $self->{reload}) { $self->{reload} = $DEFAULT_RELOAD_FLAG; }
 	if (!defined $self->{block_begin}) { $self->{block_begin} = $DEFAULT_BLOCK_BEGIN; }
 	if (!defined $self->{block_end}) { $self->{block_end} = $DEFAULT_BLOCK_END; }
-	if (!defined $self->{file}) { $self->{file} = ($ENV{SCRIPT_NAME} . $ENV{PATH_INFO}); }
+	if (!defined $self->{file}) { $self->{file} = ($ENV{SCRIPT_NAME} . ($ENV{PATH_INFO}||'') ); }
 	if (!defined $self->{content_type}) { $self->{content_type} = $DEFAULT_CONTENT_TYPE; }
 	if (!defined $self->{cascade_status}) { $self->{cascade_status} = $DEFAULT_CASCADE_STATUS; }
 	if (!defined $self->{debug}) { $self->{debug} = $DEFAULT_DEBUG_LEVEL; }
 
 	print STDERR "---- NEW SimpleTemplate OBJECT FOR $self->{file}\n" if ($self->{debug} > 1);
-    
-    $self->{r} = $r;
-    $self->{inref} = (ref($r) eq 'HASH') ? $r : &parse_form($r);
-    $self->{headerref} = {};
-    $self->{status} = 200;
+	
+	$self->{r} = $r;
+	$self->{inref} = (ref($r) eq 'HASH') ? $r : $self->parse_form($r);
+	$self->{headerref} = {};
+	$self->{status} = 200;
 
-    bless($self, $class);
-
-    return $self;
+	return $self;
 
 }
 
@@ -124,7 +127,7 @@ sub header {
 	my ($s, $name, $value) = @_;
 	my $cur = $s->{headerref}->{$name};
 	if ($cur) { $s->{headerref}->{$name} = $cur . "\n" . $name . ': ' . $value; }
-	else      { $s->{headerref}->{$name} = $value; }
+	else	  { $s->{headerref}->{$name} = $value; }
 }
 
 
@@ -206,12 +209,12 @@ sub flush {
 
 sub render {
 
-    my $s = shift;
+	my $s = shift;
 
 	if (!defined($s->{out})) { ${ $s->{out} } = ''; }
 
-    my $inref = $s->{inref};
-#    my $headerref = $s->{headerref};
+	my $inref = $s->{inref};
+#	my $headerref = $s->{headerref};
 
 	my $package = 'Apache::SimpleTemplate::Template'.$_[0];
 	$package =~ s/\//\:\:/g;
@@ -231,7 +234,7 @@ sub render {
 	}
 
 	# check for cache
-    if ($fun) {
+	if ($fun) {
 		print STDERR "-- CACHE HIT ($package)\n" if ($s->{debug} > 1);
 	} 
 	else {
@@ -355,7 +358,7 @@ sub compile {
 				$eval .= '$$____st_out_ .= &Apache::SimpleTemplate::escape('.$block.'); ';
 			}
 			elsif ($encode eq '\\') {
-				$eval .= '$$____st_out_ .= &Apache::SimpleTemplate::quote_escape('.$block.'); ';
+				$eval .= '$$____st_out_ .= &Apache::SimpleTemplate::js_escape('.$block.'); ';
 			}
 			elsif ($encode eq '-') {
 				$eval .= &blank_lines($block);
@@ -398,8 +401,8 @@ sub compile {
 }
 
 sub blank_lines {
-    my ($string) = @_;
-    $string =~ s/[^\n]//g;
+	my ($string) = @_;
+	$string =~ s/[^\n]//g;
 	return $string;
 }
 
@@ -413,7 +416,7 @@ sub blank_lines {
 
 sub include {
 
-    my $s = shift;
+	my $s = shift;
 	
 	print STDERR "---- Apache::SimpleTemplate::include FROM $s->{file} FOR $_[0]\n" if ($s->{debug} > 1);
 	my $tmp = $s->{status};
@@ -447,52 +450,68 @@ sub preload {
 # url-encode a string
 sub encode {
 
-    my $s = shift;
+	my $s = shift;
 	if (ref $s) { $s = shift; }
-    return undef unless defined($s);
+	return undef unless defined($s);
 
-    $s =~ s/([^a-zA-Z0-9_\.\-\ ])/uc sprintf("%%%02x",ord($1))/eg;
-    $s =~ s/\ /\+/g;
+	$s =~ s/([^a-zA-Z0-9_\.\-\ ])/uc sprintf("%%%02x",ord($1))/eg;
+	$s =~ s/\ /\+/g;
 
-    return $s;
+	return $s;
 
 }
 
 # url-decode a string
 sub decode {
 
-    my $s = shift;
+	my $s = shift;
 	if (ref $s) { $s = shift; }
-    return undef unless defined($s);
+	return undef unless defined($s);
 
 	$s =~ s/\+/ /g;
-    $s =~ s/\%([0-9a-fA-F]{2})/chr(hex($1))/eg;
+	$s =~ s/\%([0-9a-fA-F]{2})/chr(hex($1))/eg;
 
-    return $s;
+	return $s;
 
 }
 
-# html-escape a string ("<tag>" becomes "&lt;tag&gt;")
+# html-escape a string ('<tag> & " ' becomes '&lt;tag&gt; &amp; &quot;')
 sub escape {
 
-    my $s = shift;
+	my $s = shift;
 	if (ref $s) { $s = shift; }
-    return undef unless defined($s);
+	return undef unless defined($s);
 
-    $s =~ s/\</&lt;/g;
-    $s =~ s/\>/&gt;/g;
+	$s =~ s/\&/&amp;/g;
+	$s =~ s/\</&lt;/g;
+	$s =~ s/\>/&gt;/g;
+	$s =~ s/\"/&quot;/g;
 
-    return $s;
+	return $s;
 }
 
 # escape single quotes (') and backslashes (\) with \' and \\
 sub quote_escape {
 
-    my $s = shift;
+	my $s = shift;
 	if (ref $s) { $s = shift; }
-    return undef unless defined($s);
+	return undef unless defined($s);
 
 	$s =~ s/([\'\\])/\\$1/gs;
+
+	return $s;
+}
+
+# escape single quotes (') and backslashes (\) with \' and \\, newlines and cr's with \n \r
+sub js_escape {
+
+	my $s = shift;
+	if (ref $s) { $s = shift; }
+	return undef unless defined($s);
+
+	$s =~ s/([\'\\])/\\$1/gs;
+	$s =~ s/\n/\\n/g;
+	$s =~ s/\r/\\r/g;
 
 	return $s;
 }
@@ -508,36 +527,58 @@ sub quote_escape {
 
 sub parse_form {
 
-    my ($r) = @_;
+	my $s = shift;
+	my ($r) = @_;
 
 	#print STDERR "PARSE FORM! $r\n";
 
-    my (%form, @form);
+	my (%form, @form);
 
-    if ($r && $r->args && ref($r->args)) {
+	if ($r && $r->args && ref($r->args)) {
 		@form = $r->args;
-    }
-    elsif ($ENV{QUERY_STRING}) {
-		foreach my $pair (split('&', $ENV{QUERY_STRING})) { 
+	}
+#	elsif ($ENV{QUERY_STRING}) {
+#		foreach my $pair (split('&', $ENV{QUERY_STRING})) { 
+	elsif (($r && $r->args) || $ENV{QUERY_STRING}) {
+		foreach my $pair (split('&', (($r && $r->args) ? $r->args : $ENV{QUERY_STRING}))) { 
 			my ($k, $v) = split('=', $pair);
 			push (@form, &decode($k), &decode($v));
 		}
-    }
-    if (($r) && ($r->method() eq 'POST') && ($r->header_in('Content-Length') > 0)) {
-		push @form, $r->content();
-		$r->header_in('Content-Length', 0);
-    }
+	}
 
-    for (my $i = 0; $i < $#form; $i += 2) {
-	## $r->content returns empty things 
-	## as undefs instead of as empty strings...
+	if (($r) && ($r->method() eq 'POST') && ($r->header_in('Content-Length') > 0)) {
+
+		# handle upload posts
+		if ($r->header_in('Content-Type') =~ m/multipart\/form-data/i) {
+			use CGI;
+			$CGI::DISABLE_UPLOADS = 0;
+			my $cgi = CGI->new();
+			foreach my $k (keys %{$cgi->Vars}) { $form{$k} = $cgi->param($k); }
+			use CGI::Upload;
+			my $upload = CGI::Upload->new({ query => $cgi });
+			$s->{upload} = $upload;
+		}
+
+		# handle other posts
+		else {
+			push @form, $r->content();
+		}
+
+		# blank this so we don't think there's more to read
+		$r->header_in('Content-Length', 0);
+	}
+
+	for (my $i = 0; $i < $#form; $i += 2) {
+		## $r->content returns empty things 
+		## as undefs instead of as empty strings...
 		unless (defined $form[$i+1]) { $form[$i+1] = ''; }
 
+#		print STDERR "  GOT: $form[$i] = "+$form[$i+1]+"\n";
 		$form{$form[$i]} = $form{$form[$i]} ? 
 			$form{$form[$i]}."\0".$form[$i+1] : $form[$i+1];
-    }
+	}
 
-    return \%form;
+	return \%form;
 
 }
 
@@ -551,19 +592,19 @@ sub parse_form {
 
 sub load {
   
-    my ($filename) = @_;
-    my $ret;
+	my ($filename) = @_;
+	my $ret;
 
-    local $/ = undef;
+	local $/ = undef;
 
-    unless (open FILE, $filename) {
-        print STDERR "** Apache::SimpleTemplate: Unable to load $filename: $!\n";
+	unless (open FILE, $filename) {
+		print STDERR "** Apache::SimpleTemplate: Unable to load $filename: $!\n";
 		return undef;
-    }
-    while(<FILE>) { $ret .= $_; }
-    
-    return ($ret);
-    
+	}
+	while(<FILE>) { $ret .= $_; }
+	
+	return ($ret);
+
 }
 
 1;
@@ -628,8 +669,8 @@ __END__
      '<%^ %>'is the same as '<%= %>', but the output gets html-escaped.
      (mnemonic: '^' looks like the '<' and '>' that get replaced.)
 
-     '<%\ %>'is the same as '<%= %>', except single-quotes get escaped.
-     (useful for javascript. "'" becomes "\'" and "\" becomes "\\".)
+     '<%\ %>'is the same as '<%= %>', except the string gets escaped for
+     use as a single-quoted javascript var. ("'", "\", NL, CR get escaped.)
 
 =head3  <%- _a_comment_ %>
 
@@ -697,11 +738,15 @@ through subclasses, into which you can add the functionality you want.
 
 =head1 INSTALLATION
 
-The only requirement is mod_perl. To install Apache::SimpleTemplate, run:
+The only requirement is mod_perl**. To install Apache::SimpleTemplate, run:
 
   perl Makefile.PL
   make
   make install
+
+(** Version 0.06 works with mod_perl2 in compatibility mode. Older versions 
+may work better with mod_perl1. The CGI library is needed if you want
+file upload support.)
 
 Then, to test it with Apache/mod_perl:
 
@@ -874,6 +919,8 @@ Then, to test it with Apache/mod_perl:
                                     &Apache::SimpleTemplate::escape($string)
   $s->quote_escape($string)      -- single-quote-escape the $string.
                                     &Apache::SimpleTemplate::quote_escape($string)
+  $s->js_escape($string)         -- single-quote and newline escape (for javascript)
+                                    &Apache::SimpleTemplate::quote_escape($string)
 
   $s->preload($file)             -- preload the template in $file, a full
                                     path which must match the DOCUMENT_ROOT.
@@ -1008,7 +1055,7 @@ Then, to test it with Apache/mod_perl:
 
 =head1 VERSION
 
-  Version 0.05, 2003-March-30.
+  Version 0.06, 2005-March-11.
 
 
 
@@ -1023,7 +1070,7 @@ Then, to test it with Apache/mod_perl:
 
 
 
-=head1 COPYRIGHT (c) 2001-2003
+=head1 COPYRIGHT (c) 2001-2005
 
   This is free software with absolutely no warranty.
   You may use it, distribute it, and/or modify 

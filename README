@@ -43,11 +43,12 @@ Then, to test it with Apache/mod_perl:
 DEPENDENCIES
 
 The only dependency is mod_perl.
+(CGI::Simple and CGI::Upload are required if you're doing file uploads.)
 
 
 COPYRIGHT AND LICENSE
 
-Copyright (c) 2001-2003, Peter Forty
+Copyright (c) 2001-2006, Peter Forty
 
 This is free software with no warranty.
 You may use it, distribute it, and/or modify 
