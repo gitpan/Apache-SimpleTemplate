@@ -2,7 +2,7 @@ package Apache::SimpleTemplate;
 #
 # a very simple mod_perl template parser.
 #
-# (c) 2001-2003 peter forty
+# (c) 2001-2006 peter forty
 #
 # you may use this and/or distribute this under
 # the same terms as perl itself.
@@ -11,7 +11,7 @@ package Apache::SimpleTemplate;
 use Apache ();
 use strict;
 
-our $VERSION = 0.05;
+our $VERSION = 0.06;
 our %_cache;
 our %_cache_time;
 
